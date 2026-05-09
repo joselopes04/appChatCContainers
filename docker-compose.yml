@@ -1,0 +1,29 @@
+# version: '3.8'
+
+services:
+  servidor_chat:
+    build: ./server
+    networks:
+      - rede_interna
+
+  cliente_1:
+    build: ./client
+    stdin_open: true # Super importante: Mantém o teclado (stdin) aberto para o fgets!
+    tty: true        # Simula um terminal
+    networks:
+      - rede_interna
+    depends_on:
+      - servidor_chat # Garante que o servidor arranca primeiro
+
+  cliente_2:
+    build: ./client
+    stdin_open: true
+    tty: true
+    networks:
+      - rede_interna
+    depends_on:
+      - servidor_chat
+
+networks:
+  rede_interna:
+    driver: bridge # Cria uma rede isolada só para estes 3 containers
