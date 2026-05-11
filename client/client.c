@@ -5,43 +5,61 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h> // Necessário para a função inet_addr() da vossa sebenta
+#include <arpa/inet.h> 
+#include <pthread.h> // Incluído da Ficha P3 
+#include <unistd.h>
 
 #define exit_on_error(s,m) if ( s < 0 ) { perror(m); exit(1); }
 
-int main() {
-    int s = socket ( PF_INET, SOCK_STREAM, 0 );;
+// --- Thread separada APENAS para receber mensagens ---
+void* receber_mensagens(void* arg) {
+    int s = *(int*)arg;
+    char msg_recebe[1000];
     
-    // 1. Alterado para PF_INET (Internet) em vez de AF_UNIX (Ficheiro local)
+    while(1) {
+        memset(msg_recebe, 0, sizeof(msg_recebe));
+        int n = recv ( s, msg_recebe, sizeof(msg_recebe) - 1, 0 );
+        
+        if (n <= 0) {
+            printf("\nA ligação com o servidor caiu.\n");
+            exit(0);
+        }
+        
+        // Imprime a mensagem recebida
+        printf ("Amigo: %s", msg_recebe );
+        fflush(stdout);
+    }
+    return NULL; // [cite: 268]
+}
+
+int main() {
+    printf ("Cliente on\n");
+    fflush(stdout);
+    int s = socket ( PF_INET, SOCK_STREAM, 0 );
     exit_on_error ( s, "socket");
     
-    // 2. Utilizar a estrutura sockaddr_in conforme a secção 8.2
     struct sockaddr_in s_addr;
     s_addr.sin_family = AF_INET;
-    
-    // 3. Definir a porta 8080 (para bater certo com o teu servidor)
     s_addr.sin_port = htons(8080);
-    
-    // 4. Definir o IP de destino com inet_addr() da sebenta
     s_addr.sin_addr.s_addr = inet_addr ( "127.0.0.1" );
     
-    int status;
-    status = connect( s, (struct sockaddr*)&s_addr, sizeof(s_addr) );
+    int status = connect( s, (struct sockaddr*)&s_addr, sizeof(s_addr) );
     exit_on_error ( status, "connect");
     
-    char nome[100], msg2[100];
+    // Iniciar a Thread de Receção 
+    pthread_t t_recebe;
+    pthread_create(&t_recebe, NULL, receber_mensagens, &s); // 
     
-    printf ("Nome: ");
-    fflush(stdout); // Adicionado para garantir que o Docker imprime logo o pedido!
-    fgets ( nome, 100, stdin );
-    
-    int n = send ( s, nome, sizeof(nome), 0 );
-    exit_on_error ( n, "nome");
-    
-    n = recv ( s, msg2, sizeof(msg2), 0 );
-    exit_on_error ( n, "recv");
-    
-    printf ("%s\n", msg2 );
+    // O ciclo principal (Main) fica APENAS a tratar do teclado
+    char msg_envia[1000];
+    while(1) {
+        // printf ("Tu: ");
+        // fflush(stdout); 
+        fgets ( msg_envia, 1000, stdin );
+        
+        int n = send ( s, msg_envia, strlen(msg_envia), 0 );
+        exit_on_error ( n, "send");
+    }
     
     return 0;
 }
