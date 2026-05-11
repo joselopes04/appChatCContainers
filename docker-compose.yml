@@ -1,17 +1,12 @@
-# version: '3.8'
-
 services:
   servidor_chat:
     build: ./server
-    networks:
-      - rede_interna
 
   cliente_1:
     build: ./client
-    stdin_open: true # Super importante: Mantém o teclado (stdin) aberto para o fgets!
+    stdin_open: true # Mantém o teclado (stdin) aberto para o fgets
     tty: true        # Simula um terminal
-    networks:
-      - rede_interna
+    network_mode: "service:servidor_chat" # O truque para o 127.0.0.1 da sebenta funcionar!
     depends_on:
       - servidor_chat # Garante que o servidor arranca primeiro
 
@@ -19,11 +14,6 @@ services:
     build: ./client
     stdin_open: true
     tty: true
-    networks:
-      - rede_interna
+    network_mode: "service:servidor_chat"
     depends_on:
       - servidor_chat
-
-networks:
-  rede_interna:
-    driver: bridge # Cria uma rede isolada só para estes 3 containers
