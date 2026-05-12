@@ -1,74 +1,84 @@
-#include <stdio.h>
+#include <stdio.h> // Input/Output (printf)
 #include <stdlib.h>
-#include <string.h>
+#include <string.h> // Funções com strings
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/socket.h>
+#include <sys/socket.h> // API dos sockets
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h> // Incluído da Ficha P3 
 
-#define exit_on_error(s,m) if ( s < 0 ) { perror(m); exit(1); }
-
-int s_cli1, s_cli2; // Variáveis globais para as threads acederem [cite: 263]
-
-// Thread que escuta o Cliente 1 e reencaminha para o Cliente 2
-void* retransmite_c1_para_c2(void* arg) {
-    char buffer[1000];
-    while(1) {
-        memset(buffer, 0, sizeof(buffer));
-        int n = recv ( s_cli1, buffer, sizeof(buffer), 0 );
-        if (n <= 0) exit(0); // Se o cliente 1 sair, fecha tudo
-        send ( s_cli2, buffer, n, 0 );
+//Função para imprimir mensagens de erro  
+//GUARDAR NUM FICHEIRO À PARTE DE BIBLIOTECAS
+void exit_on_error(int status, const char *message) {
+    if (status < 0) { //Verificar se existe erro(funções em C retornam valor negativo)
+        perror(message);
+        exit(1); //Indicar ao SO que houve um erro
     }
-    return NULL; // [cite: 268]
 }
 
-// Thread que escuta o Cliente 2 e reencaminha para o Cliente 1
-void* retransmite_c2_para_c1(void* arg) {
-    char buffer[1000];
+int socket_client_1, socket_client_2; // Sockets
+
+// Thread que escuta o cliente 1 e reencaminha a mensagem para o cliente 2
+void* retransmite_c1_para_c2(void* arg) {
+    char message[1000];
     while(1) {
-        memset(buffer, 0, sizeof(buffer));
-        int n = recv ( s_cli2, buffer, sizeof(buffer), 0 );
-        if (n <= 0) exit(0); // Se o cliente 2 sair, fecha tudo
-        send ( s_cli1, buffer, n, 0 );
+        memset(message, 0, sizeof(message)); //Limpar o espaço na memória onde vai ser guardada a mensagem
+        int tamanho_mensagem = recv(socket_client_1, message, sizeof(message), 0);
+        if (tamanho_mensagem <= 0) exit(0); // Se o cliente 1 sair, fecha tudo
+        send(socket_client_2, message, tamanho_mensagem, 0);
     }
-    return NULL; // [cite: 268]
+    return NULL;
+}
+
+// Thread que escuta o cliente 2 e reencaminha a mensagem para o cliente 1
+void* retransmite_c2_para_c1(void* arg) {
+    char message[1000];
+    while(1) {
+        memset(message, 0, sizeof(message));
+        int tamanho_mensagem = recv ( socket_client_2, message, sizeof(message), 0 );
+        if (tamanho_mensagem <= 0) exit(0); // Se o cliente 2 sair, fecha tudo
+        send ( socket_client_1, message, tamanho_mensagem, 0 );
+    }
+    return NULL;
 }
 
 int main() {
-    int s = socket ( PF_INET, SOCK_STREAM, 0 );
-    exit_on_error ( s, "socket");
+    int socket_server = socket( PF_INET, SOCK_STREAM, 0 );
+    exit_on_error(socket_server, "socket");
 
     struct sockaddr_in s_addr;
     s_addr.sin_family = AF_INET;
     s_addr.sin_addr.s_addr = INADDR_ANY; 
     s_addr.sin_port = htons(8080);
 
-    int status = bind ( s, (struct sockaddr*)&s_addr, sizeof(s_addr) );
-    exit_on_error ( status, "bind");
-    listen ( s, 3 );
+    int status = bind(socket_server, (struct sockaddr*)&s_addr, sizeof(s_addr));
+    exit_on_error(status, "bind");
+    listen(socket_server, 3);
 
-    printf ("Server on. A aguardar 2 clientes...\n");
+    printf ("Server on.\n");
     fflush(stdout); 
 
     struct sockaddr_in s_addr_c1; int t1 = sizeof(s_addr_c1);
-    s_cli1 = accept ( s, (struct sockaddr *)&s_addr_c1, &t1 );
-    printf ("Cliente 1 conectado!\n"); fflush(stdout);
+    socket_client_1 = accept(socket_server, (struct sockaddr *)&s_addr_c1, &t1);
+    printf("Cliente 1 conectado!\n"); fflush(stdout);
 
     struct sockaddr_in s_addr_c2; int t2 = sizeof(s_addr_c2);
-    s_cli2 = accept ( s, (struct sockaddr *)&s_addr_c2, &t2 );
-    printf ("Cliente 2 conectado! O chat comecou.\n"); fflush(stdout);
+    socket_client_2 = accept(socket_server, (struct sockaddr *)&s_addr_c2, &t2);
+    printf("Cliente 2 conectado!\n"); 
+    fflush(stdout);
 
-    // Lançar as duas vias de comunicação em simultâneo [cite: 272, 273]
+    // Lançar as duas vias de comunicação em simultâneo 
     pthread_t t1_thread, t2_thread;
-    pthread_create(&t1_thread, NULL, retransmite_c1_para_c2, NULL); // 
-    pthread_create(&t2_thread, NULL, retransmite_c2_para_c1, NULL); // [cite: 273]
+    pthread_create(&t1_thread, NULL, retransmite_c1_para_c2, NULL); 
+    pthread_create(&t2_thread, NULL, retransmite_c2_para_c1, NULL);
 
-    // O Main fica à espera que as threads terminem [cite: 274, 275]
-    pthread_join(t1_thread, NULL); // [cite: 274]
-    pthread_join(t2_thread, NULL); // [cite: 275]
+    // O Main fica à espera que as threads terminem 
+    pthread_join(t1_thread, NULL);
+    pthread_join(t2_thread, NULL); 
     
-    close(s_cli1); close(s_cli2); close(s);
+    close(socket_client_1); 
+    close(socket_client_2);
+     close(socket_server);
     return 0;
 }
