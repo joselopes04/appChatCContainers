@@ -11,7 +11,6 @@
 
 #include "common.h"
 
-#define exit_on_error(s,m) if ( s < 0 ) { perror(m); exit(1); }
 
 // --- Thread separada APENAS para receber mensagens ---
 void* receive_msgs(void* arg) { //Função que será executada pela thread de receção. Recebe um argumento genérico do tipo void*
@@ -28,7 +27,7 @@ void* receive_msgs(void* arg) { //Função que será executada pela thread de re
         }
         
         // Imprime a mensagem recebida
-        printf ("Amigo: %s", msg_receive );
+        printf ("%s", msg_receive );
         fflush(stdout); //Força a impressão imediata no ecrã
     }
     return NULL; // [cite: 268]
@@ -47,6 +46,14 @@ int main() {
     
     int connection_status = connect( client_socket, (struct sockaddr*)&server_address, sizeof(server_address) );
     exit_on_error ( connection_status, "connect");
+
+    //Pede o nome
+    char nome[50];
+    printf("Introduz o teu nome para começar: ");
+    fflush(stdout);
+    fgets(nome, 50, stdin);
+    nome[strlen(nome) - 1] = '\0'; //Remove \n para não dar enter quando aparece o nome
+
     
     // Iniciar a Thread de Receção 
     pthread_t thread_receive; //Declara uma variável para armazenar a thread que vamos criar
@@ -55,9 +62,11 @@ int main() {
     // O ciclo principal (Main) fica APENAS a tratar do teclado
     char msg_send[1000];
     while(1) {
-        // printf ("Tu: ");
-        // fflush(stdout); 
-        fgets ( msg_send, 1000, stdin ); //Fica à espera e lê uma linha inteira do teclado (stdin), e guarda na var 'msg_send'
+        sprintf(msg_send, "%s: ", nome);
+
+        int tamanho_nome = strlen(msg_send);
+        fgets(msg_send + tamanho_nome, 1000 - tamanho_nome, stdin); //Fica à espera e lê uma linha inteira do teclado (stdin), e guarda na var 'msg_send'
+        
         
         int bytes_sent = send ( client_socket, msg_send, strlen(msg_send), 0 );
         exit_on_error ( bytes_sent, "send");
