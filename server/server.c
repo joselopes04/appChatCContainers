@@ -10,79 +10,97 @@
 
 #include "./common.h"
 
-typedef struct {
-    int socket_origem;
-    int socket_destino;
-} DadosRelay;
+#define MAX_CLIENTS 10
+#define BUFFER_SIZE 1000
 
-int socket_client_1, socket_client_2; // Sockets
+// Lista partilhada de sockets dos clientes
+int clientes[MAX_CLIENTS];
+int num_clientes = 0;
 
-void* retransmitir_mensagem(void* arg) {
-    // 1. Extrair os dados do argumento 
-    DadosRelay* dados = (DadosRelay*)arg;
-    int origin = dados->socket_origem;
-    int destination = dados->socket_destino;
-    
-    char message[1000];
-    while(1) {
-        memset(message, 0, sizeof(message)); // Limpar o buffer
+// Mutex para proteger o acesso ao array de clientes [cite: 346-347]
+pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER;
+
+// Função para enviar mensagem a todos os clientes conectados (exceto o remetente)
+void broadcast(char* mensagem, int remetente_fd) {
+    pthread_mutex_lock(&mutex_clientes); // Bloqueia para acesso exclusivo [cite: 348]
+    for (int i = 0; i < num_clientes; i++) {
+        if (clientes[i] != remetente_fd) {
+            send(clientes[i], mensagem, strlen(mensagem), 0);
+        }
+    }
+    pthread_mutex_unlock(&mutex_clientes); // Liberta o acesso [cite: 349]
+}
+
+void* tratar_cliente(void* arg) {
+    int cli_fd = *(int*)arg;
+    free(arg); // Liberta a memória alocada no main
+    char buffer[BUFFER_SIZE];
+
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int n = recv(cli_fd, buffer, BUFFER_SIZE, 0);
         
-        // Receber do socket de origem
-        int tamanho_mensagem = recv(origin, message, sizeof(message), 0); 
-        
-        // Se a origem se desligar, encerra a comunicação
-        if (tamanho_mensagem <= 0) {
-            printf("\nUm utilizador desconectou-se. A fechar o chat...\n");
-            pthread_exit(NULL); 
+        if (n <= 0) {
+            // Se o cliente desconectar, removemos do array
+            pthread_mutex_lock(&mutex_clientes);
+            for (int i = 0; i < num_clientes; i++) {
+                if (clientes[i] == cli_fd) {
+                    clientes[i] = clientes[num_clientes - 1]; // Substitui pelo último
+                    num_clientes--;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&mutex_clientes);
+            close(cli_fd);
+            printf("Um utilizador saiu. Clientes ativos: %d\n", num_clientes);
+            fflush(stdout);
+            return NULL;
         }
         
-        // Enviar para o socket de destino
-        send(destination, message, tamanho_mensagem, 0); 
+        // Espalha a mensagem recebida para todos os outros
+        broadcast(buffer, cli_fd);
     }
-    return NULL;
 }
 
 int main() {
-    int socket_server = socket(PF_INET, SOCK_STREAM, 0);
-    exit_on_error(socket_server, "socket");
+    int s = socket(PF_INET, SOCK_STREAM, 0);
+    exit_on_error(s, "socket");
 
     struct sockaddr_in s_addr;
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = INADDR_ANY; 
+    s_addr.sin_addr.s_addr = INADDR_ANY; //
     s_addr.sin_port = htons(8080);
 
-    int status = bind(socket_server, (struct sockaddr*)&s_addr, sizeof(s_addr));
-    exit_on_error(status, "bind");
-    listen(socket_server, 3);
+    bind(s, (struct sockaddr*)&s_addr, sizeof(s_addr));
+    listen(s, MAX_CLIENTS);
 
-    printf ("Server on.\n");
-    fflush(stdout); 
-
-    struct sockaddr_in s_addr_c1; int t1 = sizeof(s_addr_c1);
-    socket_client_1 = accept(socket_server, (struct sockaddr *)&s_addr_c1, &t1);
-    printf("Cliente 1 conectado!\n"); fflush(stdout);
-
-    struct sockaddr_in s_addr_c2; int t2 = sizeof(s_addr_c2);
-    socket_client_2 = accept(socket_server, (struct sockaddr *)&s_addr_c2, &t2);
-    printf("Cliente 2 conectado!\n"); 
+    printf("Servidor de Chat Multilizador Online (Porta 8080)...\n");
     fflush(stdout);
 
-    // Lançar as duas vias de comunicação em simultâneo 
-    DadosRelay dados_c1_para_c2 = {socket_client_1, socket_client_2};
-    DadosRelay dados_c2_para_c1 = {socket_client_2, socket_client_1};
+    while (1) {
+        struct sockaddr_in c_addr;
+        socklen_t len = sizeof(c_addr);
+        int cli_fd = accept(s, (struct sockaddr*)&c_addr, &len);
 
-    pthread_t t1_thread, t2_thread;
+        pthread_mutex_lock(&mutex_clientes);
+        if (num_clientes < MAX_CLIENTS) {
+            clientes[num_clientes++] = cli_fd;
+            
+            // Criar uma thread para este novo cliente 
+            int* p_cli_fd = malloc(sizeof(int));
+            *p_cli_fd = cli_fd;
+            pthread_t t;
+            pthread_create(&t, NULL, tratar_cliente, p_cli_fd);
+            
+            printf("Novo cliente conectado! Total: %d\n", num_clientes);
+        } else {
+            printf("Aviso: Sala cheia. Conexão rejeitada.\n");
+            close(cli_fd);
+        }
+        pthread_mutex_unlock(&mutex_clientes);
+        fflush(stdout);
+    }
 
-    // Lançar as threads usando a mesma função genérica 
-    pthread_create(&t1_thread, NULL, retransmitir_mensagem, &dados_c1_para_c2);
-    pthread_create(&t2_thread, NULL, retransmitir_mensagem, &dados_c2_para_c1);
-
-    // O Main fica à espera que as threads terminem
-    pthread_join(t1_thread, NULL);
-    pthread_join(t2_thread, NULL);
-    
-    close(socket_client_1); 
-    close(socket_client_2);
-    close(socket_server);
+    pthread_mutex_destroy(&mutex_clientes); // [cite: 350]
     return 0;
 }
