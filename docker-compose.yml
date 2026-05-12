@@ -1,19 +1,28 @@
+# Define os serviços (contentores) que compõem a aplicação
 services:
+  # --- Serviço do Servidor de Chat ---
   servidor_chat:
-    build: ./server
-
+    build: ./server # Constrói a imagem Docker a partir do Dockerfile na pasta ./server
+ 
+ # --- Serviço do Cliente 1 ---
   cliente_1:
-    build: ./client
-    stdin_open: true # Mantém o teclado (stdin) aberto para o fgets
-    tty: true        # Simula um terminal
+    build: ./client # Constrói a imagem Docker a partir do Dockerfile na pasta ./client
+    stdin_open: true # Mantém o stdin aberto — necessário para o fgets() em C não fechar imediatamente
+    tty: true        # Aloca um pseudo-terminal (TTY), simulando um terminal interativo
     network_mode: "service:servidor_chat" # O truque para o 127.0.0.1 da sebenta funcionar!
+    # Em vez de criar uma rede própria, este contentor partilha a stack de rede do servidor_chat.
+    # Isto significa que o cliente consegue ligar-se via 127.0.0.1 (localhost) ao servidor,
+    # exatamente como nos exemplos da sebenta — ambos "vivem" no mesmo namespace de rede.
     depends_on:
-      - servidor_chat # Garante que o servidor arranca primeiro
+      - servidor_chat # Garante que o contentor servidor_chat arranca antes deste cliente
 
+  # --- Serviço do Cliente 2 ---
+  # Configuração idêntica ao cliente_1 — permite ter dois clientes em simultâneo
   cliente_2:
     build: ./client
-    stdin_open: true
-    tty: true
+    stdin_open: true # Idem — mantém stdin aberto para input interativo
+    tty: true    # Idem — simula terminal
     network_mode: "service:servidor_chat"
+    # Partilha também a rede do servidor_chat, logo também se liga via 127.0.0.1
     depends_on:
-      - servidor_chat
+      - servidor_chat # Garante ordem de arranque: servidor antes do cliente
