@@ -9,6 +9,8 @@
 #include <pthread.h> // Incluído da Ficha P3 
 #include <unistd.h>
 
+#include "common.h"
+
 #define exit_on_error(s,m) if ( s < 0 ) { perror(m); exit(1); }
 
 // --- Thread separada APENAS para receber mensagens ---

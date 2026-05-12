@@ -2,11 +2,15 @@
 services:
   # --- Serviço do Servidor de Chat ---
   servidor_chat:
-    build: ./server # Constrói a imagem Docker a partir do Dockerfile na pasta ./server
+    build:  # Constrói a imagem Docker a partir do Dockerfile na pasta ./server
+      context: .              # O "ponto" diz: a raiz é aqui (onde está o common.c)
+      dockerfile: server/Dockerfile
  
  # --- Serviço do Cliente 1 ---
   cliente_1:
-    build: ./client # Constrói a imagem Docker a partir do Dockerfile na pasta ./client
+    build: # Constrói a imagem Docker a partir do Dockerfile na pasta ./client
+      context: .              # Mesma coisa: permite aceder ao common.c
+      dockerfile: client/Dockerfile
     stdin_open: true # Mantém o stdin aberto — necessário para o fgets() em C não fechar imediatamente
     tty: true        # Aloca um pseudo-terminal (TTY), simulando um terminal interativo
     network_mode: "service:servidor_chat" # O truque para o 127.0.0.1 da sebenta funcionar!
@@ -19,7 +23,9 @@ services:
   # --- Serviço do Cliente 2 ---
   # Configuração idêntica ao cliente_1 — permite ter dois clientes em simultâneo
   cliente_2:
-    build: ./client
+    build: 
+      context: .              # Mesma coisa: permite aceder ao common.c
+      dockerfile: client/Dockerfile
     stdin_open: true # Idem — mantém stdin aberto para input interativo
     tty: true    # Idem — simula terminal
     network_mode: "service:servidor_chat"
