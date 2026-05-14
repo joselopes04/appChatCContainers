@@ -89,7 +89,7 @@ int main() {
         exit_on_error(client_file_descriptor, "accept");
 
         pthread_mutex_lock(&mutex_clientes); // Tranca o mutex para garantir exclusão mútua ao alterar a lista de clientes.
-        if (num_clientes < MAX_CLIENTS) {
+        if (num_clientes < MAX_CLIENTS) { // Verificar se já atingimos o número máximo de utilizadores 
             clientes[num_clientes++] = client_file_descriptor;
             
             // Criar uma thread para este novo cliente 
@@ -106,7 +106,6 @@ int main() {
         pthread_mutex_unlock(&mutex_clientes);
         fflush(stdout);
     }
-
-    pthread_mutex_destroy(&mutex_clientes); // [cite: 350]
+    pthread_mutex_destroy(&mutex_clientes);
     return 0;
 }
