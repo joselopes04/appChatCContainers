@@ -1,13 +1,13 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h> // Input/Output printf()
+#include <stdlib.h> // Funções de sistema exit(), malloc()
 #include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h> 
-#include <pthread.h> // Incluído da Ficha P3 
-#include <unistd.h>
+#include <string.h> // Funções com strings
+#include <sys/types.h> //Define tipos de dados socklen_t
+#include <sys/socket.h> // API dos sockets
+#include <netinet/in.h> //Funções como AF_INET
+#include <arpa/inet.h> // Funções como inet_addr()
+#include <pthread.h> // Funções das Threads
+#include <unistd.h> // close()
 
 #include "common.h"
 
