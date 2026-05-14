@@ -30,7 +30,6 @@ void* receive_msgs(void* arg) { //Função que será executada pela thread de re
         printf ("%s", msg_receive );
         fflush(stdout); //Força a impressão imediata no ecrã
     }
-    return NULL; // [cite: 268]
 }
 
 int main() {
