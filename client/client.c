@@ -1,6 +1,5 @@
 #include <stdio.h> // Input/Output printf()
 #include <stdlib.h> // Funções de sistema exit(), malloc()
-#include <errno.h>
 #include <string.h> // Funções com strings
 #include <sys/types.h> //Define tipos de dados socklen_t
 #include <sys/socket.h> // API dos sockets
@@ -23,7 +22,12 @@ void* receive_msgs(void* arg) { //Função que será executada pela thread de re
         
         if (bytes_receive <= 0) { // Verifica se a quantidade de bytes recebidos é 0 ou menor, o que significa que o servidor desligou ou ocorreu um erro
             printf("\nA ligação com o servidor caiu.\n");
-            exit(0);
+            
+            //Isto força o fdgets() no main a desbloquear ou retornar erro
+            shutdown(client_socket, SHUT_RDWR);
+            close(client_socket);
+
+            pthread_exit(NULL);
         }
         
         // Imprime a mensagem recebida
@@ -51,25 +55,40 @@ int main() {
     printf("Introduz o teu nome para começar: ");
     fflush(stdout);
     fgets(nome, 50, stdin);
-    nome[strlen(nome) - 1] = '\0'; //Remove \n para não dar enter quando aparece o nome
+    nome[strcspn(nome, "\n")] = '\0'; //Encontra \n e remove-o
 
     
     // Iniciar a Thread de Receção 
     pthread_t thread_receive; //Declara uma variável para armazenar a thread que vamos criar
-    pthread_create(&thread_receive, NULL, receive_msgs, &client_socket); //Cria a thread secundária. Vai correr a função e passa-lhe o endereço do socket
-    
+    int *p_sock = malloc(sizeof(int));
+
+    *p_sock = client_socket;
+    pthread_create(&thread_receive, NULL, receive_msgs, p_sock); //Cria a thread secundária. Vai correr a função e passa-lhe o endereço do socket
+    pthread_detach(thread_receive);
+
     // O ciclo principal (Main) fica APENAS a tratar do teclado
     char msg_send[1000];
     while(1) {
         sprintf(msg_send, "%s: ", nome);
 
         int tamanho_nome = strlen(msg_send);
-        fgets(msg_send + tamanho_nome, 1000 - tamanho_nome, stdin); //Fica à espera e lê uma linha inteira do teclado (stdin), e guarda na var 'msg_send'
-        
+        if (fgets(msg_send + tamanho_nome, 1000 - tamanho_nome, stdin) == NULL){ //Fica à espera e lê uma linha inteira do teclado (stdin), e guarda na var 'msg_send'
+            break;
+        }
+
+        //Se não tiveres anda escrito, não te deixa avançar
+        if (strlen(msg_send) <= (size_t)tamanho_nome + 1){
+            continue;
+        }
         
         int bytes_sent = send ( client_socket, msg_send, strlen(msg_send), 0 );
-        exit_on_error ( bytes_sent, "send");
+        if (bytes_sent <= 0){
+            break;
+        }
     }
+
+    printf("A encerrar client...\n");
+    close(client_socket);
     
     return 0;
 }

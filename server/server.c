@@ -91,21 +91,27 @@ int main() {
         pthread_mutex_lock(&mutex_clientes); // Tranca o mutex para garantir exclusão mútua ao alterar a lista de clientes.
         if (num_clientes < MAX_CLIENTS) { // Verificar se já atingimos o número máximo de utilizadores 
             clientes[num_clientes++] = client_file_descriptor;
+            int total_atual = num_clientes;
+
+            pthread_mutex_unlock(&mutex_clientes);
             
             // Criar uma thread para este novo cliente 
             int* p_cli_fd = malloc(sizeof(int));
             *p_cli_fd = client_file_descriptor;
             pthread_t t;
             pthread_create(&t, NULL, tratar_cliente, p_cli_fd);
+            pthread_detach(t);
             
-            printf("Novo cliente conectado! Total: %d\n", num_clientes);
+            printf("Novo cliente conectado! Total: %d\n", total_atual);
         } else {
+            pthread_mutex_unlock(&mutex_clientes);
+
             printf("Aviso: Sala cheia. Conexão rejeitada.\n");
+            send(client_file_descriptor, "Sala cheia. Tenta novamente mais tarde.\n", 40, 0);
             close(client_file_descriptor);
         }
-        pthread_mutex_unlock(&mutex_clientes);
         fflush(stdout);
     }
-    pthread_mutex_destroy(&mutex_clientes);
+    //pthread_mutex_destroy(&mutex_clientes);
     return 0;
 }

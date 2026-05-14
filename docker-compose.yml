@@ -5,6 +5,11 @@ services:
     build:  # Constrói a imagem Docker a partir do Dockerfile na pasta ./server
       context: .              # O "ponto" diz: a raiz é aqui (onde está o common.c)
       dockerfile: server/Dockerfile
+    healthcheck: #Verifica se a porta 8080 está aberta
+      test: ["CMD", "printf", "", ">", "/dev/tcp/127.0.0.1/8080"]
+      interval: 2s
+      timeout: 1s
+      retries: 5
  
  # --- Serviço do Cliente 1 ---
   cliente:
@@ -15,4 +20,5 @@ services:
       tty: true                 # Simula um terminal
       network_mode: "service:servidor_chat" # O truque para o 127.0.0.1 da sebenta funcionar!
       depends_on:
-        - servidor_chat
+        servidor_chat:
+          condition: service_healthy #Eliminação de uma race condition
