@@ -33,7 +33,7 @@ int iniciarServidor(){
     exit_on_error(status_listen, "listen");
     printf("Servidor ON\n");
     fflush(stdout);
-    return sockt
+    return sockt;
 }
 
 // Função que envia mensagem a todos os clientes conectados (exceto o remetente)
@@ -80,7 +80,7 @@ void* tratar_cliente(void* arg){
 }
 
 int main() {
-    int sockt = iniciarServidor()    
+    int sockt = iniciarServidor(); 
 
     while (1) {
         struct sockaddr_in client_addr; //Estrutura para guardar dados do cliente
