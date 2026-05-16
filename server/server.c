@@ -121,6 +121,5 @@ int main() {
         }
         fflush(stdout);
     }
-    pthread_mutex_destroy(&mutex_clientes);
     return 0;
 }

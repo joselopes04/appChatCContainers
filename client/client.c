@@ -21,6 +21,10 @@ void* receive_msgs(void* arg) { //Função que será executada pela thread de re
         memset(msg_receive, 0, sizeof(msg_receive)); //Preenche todo o buffer com zeros para apagar qualquer lixo de memória
         int bytes_receive = recv ( client_socket, msg_receive, sizeof(msg_receive) - 1, 0 ); //Lê dados do socket. O programa pausa aqui até receber algo
         
+        if (bytes_receive > 0) {
+            msg_receive[bytes_receive] = '\0';
+        }
+
         if (bytes_receive <= 0) { // Verifica se a quantidade de bytes recebidos é 0 ou menor, o que significa que o servidor desligou ou ocorreu um erro
             printf("\nA ligação com o servidor caiu.\n");
             
@@ -89,6 +93,7 @@ int main() {
     }
 
     printf("A encerrar client...\n");
+    shutdown(client_socket, SHUT_RDWR);
     close(client_socket);
     
     return 0;
