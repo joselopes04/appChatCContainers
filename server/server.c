@@ -38,16 +38,25 @@ int iniciarServidor(){
 
 // Função que envia mensagem a todos os clientes conectados (exceto o remetente)
 void sendMessage(char* mensagem, int remetente_fd){
+    int sockets_temp[MAX_CLIENTS];
+    int total_temp = 0;
+
+    //Bloqueia apenas para ler e copiar os dados partilhados
     pthread_mutex_lock(&mutex_clientes); // Bloqueia para acesso ao array 
     for (int i = 0; i < num_clientes; i++) {
         if (clientes[i] != remetente_fd) {
-            send(clientes[i], mensagem, strlen(mensagem), 0);
+            sockets_temp[total_temp++] = clientes[i];
         }
     }
     pthread_mutex_unlock(&mutex_clientes); // Liberta o acesso do array
+
+    //Faz o I/O (envio) lento fora do bloqueio do mutex
+    for (int i = 0; i < total_temp; i++) {
+        send(sockets_temp[i], mensagem, strlen(mensagem), 0);
+    }
 }
 
-// Função para
+// Função para tratar do cliente
 void* tratar_cliente(void* arg){
     int cli_fd = *(int*)arg;
     free(arg); // Liberta a memória alocada no main
@@ -112,6 +121,6 @@ int main() {
         }
         fflush(stdout);
     }
-    //pthread_mutex_destroy(&mutex_clientes);
+    pthread_mutex_destroy(&mutex_clientes);
     return 0;
 }

@@ -14,6 +14,7 @@
 // --- Thread separada APENAS para receber mensagens ---
 void* receive_msgs(void* arg) { //Função que será executada pela thread de receção. Recebe um argumento genérico do tipo void*
     int client_socket = *(int*)arg; //Converte o ponteiro genérico de volta para inteiro e guarda o identificador do socket
+    free(arg); // Liberta a memória alocada no main
     char msg_receive[1000]; //Declara um array de caracteres (buffer) de 1000 posições para guardar a mensagem que vai chegar
     
     while(1) {
@@ -77,7 +78,7 @@ int main() {
         }
 
         //Se não tiveres anda escrito, não te deixa avançar
-        if (strlen(msg_send) <= (size_t)tamanho_nome + 1){
+        if (strlen(msg_send) <= tamanho_nome + 1){
             continue;
         }
         

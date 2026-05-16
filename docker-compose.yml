@@ -6,7 +6,7 @@ services:
       context: .              # O "ponto" diz: a raiz é aqui (onde está o common.c)
       dockerfile: server/Dockerfile
     healthcheck: #Verifica se a porta 8080 está aberta
-      test: ["CMD", "printf", "", ">", "/dev/tcp/127.0.0.1/8080"]
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8080"]
       interval: 2s
       timeout: 1s
       retries: 5
