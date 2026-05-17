@@ -7,6 +7,7 @@
 #include <netinet/in.h> //Funções como AF_INET
 #include <arpa/inet.h> // Funções como inet_addr()
 #include <pthread.h> // Funções das Threads
+#include <time.h> // Lida com datas e horas
 #include "./common.h"
 
 #define MAX_CLIENTS 10
@@ -16,6 +17,7 @@ int clientes[MAX_CLIENTS]; // Lista de sockets dos clientes
 int num_clientes = 0;
 
 pthread_mutex_t mutex_clientes = PTHREAD_MUTEX_INITIALIZER; // Mutex para proteger o acesso ao array de clientes
+pthread_mutex_t mutex_log = PTHREAD_MUTEX_INITIALIZER;
 
 //Função configura e inicializa o servidor e devolve o socket do mesmo
 int iniciarServidor(){
@@ -64,7 +66,7 @@ void* tratar_cliente(void* arg){
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
-        int n = recv(cli_fd, buffer, BUFFER_SIZE, 0);
+        int n = recv(cli_fd, buffer, BUFFER_SIZE - 1, 0);
         
         if (n <= 0) {
             // Se o cliente desconectar, removemos do array
@@ -82,10 +84,44 @@ void* tratar_cliente(void* arg){
             fflush(stdout);
             return NULL;
         }
+
+        buffer[n] = '\0'; 
+
+        registar_log(buffer);
         
         // Espalha a mensagem recebida para todos os outros
         sendMessage(buffer, cli_fd);
     }
+}
+
+void registar_log(const char* mensagem) {
+    // Trancamos o Mutex para que só uma thread escreva no ficheiro de cada vez
+    pthread_mutex_lock(&mutex_log);
+
+    FILE *ficheiro = fopen("logs/chat_log.txt", "a"); 
+    if (ficheiro != NULL) {
+        // Obter a data e hora atuais
+        time_t t = time(NULL);
+        struct tm tm = *localtime(&t);
+
+        // Escrever no formato: [DD/MM/YYYY HH:MM:SS] Mensagem
+        fprintf(ficheiro, "[%02d/%02d/%04d %02d:%02d:%02d] %s",
+                tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900,
+                tm.tm_hour, tm.tm_min, tm.tm_sec,
+                mensagem);
+
+        // Garantir que há uma quebra de linha no final, por segurança
+        if (mensagem[strlen(mensagem)-1] != '\n') {
+            fprintf(ficheiro, "\n");
+        }
+
+        fclose(ficheiro);
+    } else {
+        printf("Aviso: Não foi possível abrir o ficheiro de log.\n");
+    }
+
+    // Libertar o Mutex para a próxima thread
+    pthread_mutex_unlock(&mutex_log);
 }
 
 int main() {
@@ -110,6 +146,7 @@ int main() {
             pthread_t t;
             pthread_create(&t, NULL, tratar_cliente, p_cli_fd);
             pthread_detach(t);
+
             
             printf("Novo cliente conectado! Total: %d\n", total_atual);
         } else {
